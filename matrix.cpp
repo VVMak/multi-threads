@@ -2,7 +2,6 @@
 #include <chrono>
 #include <iostream>
 #include <fstream>
-#include <vector>
 
 #include <stdlib.h>
 
@@ -16,10 +15,18 @@ class MatrixMultiplication{
     int Run();
   private:
     const char mode_;
-    std::vector<std::vector<int>> left_;
-    std::vector<std::vector<int>> right_;
-    std::vector<std::vector<int>> result_;
+    int* left_;
+    int* right_;
+    int* result_;
+    size_t size_;
+    size_t capacity_;
 
+    int& at(int* arr, size_t row, size_t col) { return arr[row * capacity_ + col]; }
+    int& left(size_t row, size_t col) { return at(left_, row, col); }
+    int& right(size_t row, size_t col) { return at(right_, row, col); }
+    int& result(size_t row, size_t col) { return at(result_, row, col); }
+
+    void ReadArrayFrom(std::ifstream& f_in, int*& arr);
     void ReadFile(const std::string& filename);
     void NaiveSingleThread();
     void BlockSingleThread();
@@ -31,10 +38,17 @@ MatrixMultiplication::MatrixMultiplication(const std::string& filename, char mod
     throw std::invalid_argument("mode should be from 1 to 4");
   }
   ReadFile(filename);
-  const int size = left_.size();
-  result_.resize(size);
-  for (auto& v : result_) {
-    v.resize(size);
+  result_ = reinterpret_cast<int*>(std::malloc(sizeof(int) * capacity_ * size_));
+  for (int i = 0; i < capacity_ * size_; ++i) {
+    result_[i] = 0;
+  }
+}
+
+void MatrixMultiplication::ReadArrayFrom(std::ifstream& f_in, int*& arr) {
+  arr = reinterpret_cast<int*>(sizeof(int) * capacity_ * size_);
+  for (size_t i = 0; i < size_; ++i) {
+    for (size_t j = 0; j < size_; ++j)
+      f_in >> at(arr, i, j);
   }
 }
 
@@ -43,22 +57,10 @@ void MatrixMultiplication::ReadFile(const std::string& filename) {
   if (!f_in.is_open()) {
     throw "failed to open " + filename;
   }
-  int size = 0;
-  f_in >> size;
-  left_.resize(size);
-  for (auto& v : left_) {
-    v.resize(size);
-    for (auto& x : v) {
-      f_in >> x;
-    }
-  }
-  right_.resize(size);
-  for (auto& v : right_) {
-    v.resize(size);
-    for (auto& x : v) {
-      f_in >> x;
-    }
-  }
+  f_in >> size_;
+  capacity_ = (size_ / 64 + static_cast<bool>(size_ & 63)) * 64;
+  ReadArrayFrom(f_in, left_);
+  ReadArrayFrom(f_in, right_);
 }
 
 int MatrixMultiplication::Run() {
@@ -81,37 +83,33 @@ int MatrixMultiplication::Run() {
 }
 
 void MatrixMultiplication::NaiveSingleThread() {
-  const size_t size = left_.size();
-  for (size_t i = 0; i < size; ++i) {
-    for (size_t j = 0; j < size; ++j) {
-      for (size_t k = 0; k < size; ++k) {
-        result_[i][j] += left_[i][k] * right_[k][j];
+  for (size_t i = 0; i < size_; ++i) {
+    for (size_t j = 0; j < size_; ++j) {
+      for (size_t k = 0; k < size_; ++k) {
+        result(i, j) += left(i, k) * right(k, j);
       }
     }
   }
 }
 // static int counter = 0;
 void MatrixMultiplication::BlockSingleThread() {
-  const size_t size = left_.size();
-  const size_t full_blocks = size / BLOCK_SIZE; 
-  const size_t num_of_blocks = full_blocks + static_cast<bool>(size % BLOCK_SIZE);
-  for (size_t row_1 = 0; row_1 < size; row_1 += BLOCK_SIZE) {
-    for (size_t col_1 = 0; col_1 < size; col_1 += BLOCK_SIZE) {
-      for (size_t row_2 = 0; row_2 < size; row_2 += BLOCK_SIZE) {
-        for (size_t col_2 = 0; col_2 < size; col_2 += BLOCK_SIZE) {
-          size_t row_max = std::min(row_1 + BLOCK_SIZE, size);
-          size_t col_max = std::min(col_2 + BLOCK_SIZE, size);
-          size_t k_max = std::min(std::min(BLOCK_SIZE, size - col_1),
-            size - row_2);
-          // std::cout << row_1 << " " << row_max << ' ' << col_2 << ' ' << col_max << ' ' << k_max << std::endl;
+  const size_t full_blocks = size_ / BLOCK_SIZE; 
+  const size_t num_of_blocks = full_blocks + static_cast<bool>(size_ % BLOCK_SIZE);
+  for (size_t row_1 = 0; row_1 < size_; row_1 += BLOCK_SIZE) {
+    for (size_t col_1 = 0; col_1 < size_; col_1 += BLOCK_SIZE) {
+      for (size_t row_2 = 0; row_2 < size_; row_2 += BLOCK_SIZE) {
+        for (size_t col_2 = 0; col_2 < size_; col_2 += BLOCK_SIZE) {
+          size_t row_max = std::min(row_1 + BLOCK_SIZE, size_);
+          size_t col_max = std::min(col_2 + BLOCK_SIZE, size_);
+          size_t k_max = std::min(std::min(BLOCK_SIZE, size_ - col_1),
+            size_ - row_2);
           for (size_t row = row_1; row < row_max; ++row) {
             for (size_t k = 0; k < k_max; ++k) {
               for (size_t col = col_2; col < col_max; ++col) {
-                result_[row][col] += left_[row][k + col_1] * right_[k + row_2][col];
-                  // ++counter;
-                }
+                result(row, col) += left(row, k + col_1) * right(k + row_2, col);
               }
             }
+          }
         }
       }
     }
