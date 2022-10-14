@@ -12,6 +12,7 @@ STEP_SIZE=128
 MIN_THREADS = 2
 MAX_THREADS = 17
 STEP_THREADS = 1
+SIZE = int(np.sqrt(5 * (2 ** 20)))
 
 NUM_OF_TESTS = 5
 
@@ -51,12 +52,12 @@ compile_input_file()
 sizes = np.arange(MIN_SIZE, MAX_SIZE, STEP_SIZE)
 times1 = []
 times2 = []
-for size in sizes:
-    print(size)
+for SIZE in sizes:
+    print(SIZE)
     average1 = np.array([])
     average2 = np.array([])
     for _ in np.arange(0, NUM_OF_TESTS):
-        generate_test(size)
+        generate_test(SIZE)
         average1 = np.append(average1, execute_program(BIN_FILENAME, '1'))
         average2 = np.append(average2, execute_program(BIN_FILENAME, '2'))
     times1 = np.append(times1, np.average(average1))
@@ -64,16 +65,14 @@ for size in sizes:
 
 plt.figure('single-thread')
 plt.title('Однопоточные реализации')
-plt.plot(sizes, times1, color='red', label='naive')
-plt.plot(sizes, times2, color='blue', label='blocky')
+plt.scatter(sizes, times1, color='red', label='наивная')
+plt.scatter(sizes, times2, color='blue', label='блочная')
 plt.xlabel('Размер матрицы')
-plt.ylabel('Время, мсек')
+plt.ylabel(f'Время (среднее за {NUM_OF_TESTS} попыток), мсек')
 plt.legend()
 plt.savefig(f'{PICTURE_SERIES}1.png')
 
 
-# size = int(np.sqrt(5 * (2 ** 20)))
-size = 1000
 threads = np.arange(MIN_THREADS, MAX_THREADS, STEP_THREADS)
 times3 = []
 times4 = []
@@ -82,7 +81,7 @@ for num_of_threads in threads:
     average3 = np.array([])
     average4 = np.array([])
     for _ in np.arange(0, NUM_OF_TESTS):
-        generate_test(size)
+        generate_test(SIZE)
         average3 = np.append(average3, execute_program(BIN_FILENAME, '3', num_of_threads))
         average4 = np.append(average4, execute_program(BIN_FILENAME, '4', num_of_threads))
     times3 = np.append(times3, np.average(average3))
@@ -90,10 +89,10 @@ for num_of_threads in threads:
 
 plt.figure('multi-thread')
 plt.title('Многопоточные реализации')
-plt.plot(threads, times3, color='red', label='naive')
-plt.plot(threads, times4, color='blue', label='block')
+plt.scatter(threads, times3, color='red', label='наивная')
+plt.scatter(threads, times4, color='blue', label='блочная')
 plt.xlabel('Количество потоков')
-plt.ylabel('Время, мсек')
+plt.ylabel(f'Время (среднее за {NUM_OF_TESTS} попыток), мсек')
 plt.legend()
 plt.savefig(f'{PICTURE_SERIES}2.png')
 
