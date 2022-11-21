@@ -21,5 +21,5 @@ void TicketlockBackoff::Lock() {
 }
 
 void TicketlockBackoff::Unlock() {
-  current_ticket_.fetch_add(current_ticket_.load(std::memory_order_relaxed) + 1, std::memory_order_release);
+  current_ticket_.store(current_ticket_.load(std::memory_order_relaxed) + 1, std::memory_order_release);
 }
